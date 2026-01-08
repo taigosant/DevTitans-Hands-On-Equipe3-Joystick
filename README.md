@@ -1,2 +1,40 @@
-# DevTitans-Hands-On-Equipe3-Joystick
-DevTitans-Hands-On-Equipe3-Joystick
+# Projeto Joystick DevTitans
+
+Este repositório contém o firmware para um joystick baseado em ESP32 e um driver Linux para comunicação com o dispositivo.
+
+O projeto foca no desenvolvimento de baixo nível, transformando sinais elétricos de pinos GPIO em eventos de input padrão do Android, fazendo com que o sistema reconheça o protótipo como um gamepad nativo.
+
+## Funcionalidade Principal
+
+- **Hardware do Joystick:** Um protótipo de joystick será construído utilizando um ESP32 para ler o estado de botões físicos.
+- **Comunicação via GPIO:** O ESP32 se comunicará com o Raspberry Pi 4B diretamente através das portas GPIO. Cada botão pressionado no joystick resultará na alteração do estado de um pino GPIO correspondente.
+- **Driver de Kernel:** O núcleo do projeto é a implementação de um driver de dispositivo de entrada para o Kernel Linux (AOSP). O próprio driver será responsável por todo o trabalho: ele irá monitorar os pinos GPIO, detectar as mudanças de estado e gerar os eventos de botão (ex: `BTN_A`, `BTN_B`) no formato padrão que o Android entende nativamente.
+- **Integração Nativa:** Como o driver cria os eventos de forma padronizada, o Android InputFlinger reconhecerá o dispositivo automaticamente assim que o driver for carregado, permitindo que o joystick seja usado em qualquer aplicativo ou jogo compatível.
+
+## Estrutura
+
+- `firmware/` — Código-fonte do firmware do joystick ESP32 AOSP
+- `driver/` — Código-fonte e documentação do driver Linux
+
+## Firmware (ESP32)
+
+### 📋 Requisitos
+
+- ESP-IDF (Framework de desenvolvimento da Espressif)
+- Placa ESP32 compatível
+
+### ⚙️ Compilação e Gravação
+
+1. Pegue o codigo do firmware no arquivo `firmware/firmware.ino` e compile usando o [Arduino IDE](https://docs.arduino.cc/software/ide/)
+2. Carregue o firmware na placa ESP32 seguindo as instruções do Arduino IDE.
+
+   ```
+##  Driver Linux
+
+Consulte o arquivo `driver/README.txt` para instruções de compilação e instalação do driver Linux. 
+
+## Imagem AOSP para Raspberry Pi 4
+
+Consulte o arquivo `driver/README.txt` para instruções de compilação e instalação da Imagem. 
+
+
