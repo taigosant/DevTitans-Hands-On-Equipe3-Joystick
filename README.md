@@ -37,4 +37,15 @@ Consulte o arquivo `driver/README.txt` para instruções de compilação e insta
 
 Consulte o arquivo `driver/README.txt` para instruções de compilação e instalação da Imagem. 
 
+## Desenvolvedores
+<img width="206" height="308" alt="image" src="https://github.com/user-attachments/assets/d7893d29-3348-4ccd-accb-f93c75543fa3" />
+<img width="207" height="310" alt="image" src="https://github.com/user-attachments/assets/9ae062f3-9604-4bbe-bcfc-11e2afe092ec" />
+<img width="213" height="310" alt="image" src="https://github.com/user-attachments/assets/8c33e761-e184-4555-984b-0dfcda9221bc" />
+<img width="203" height="308" alt="image" src="https://github.com/user-attachments/assets/8fc0b9bd-e98f-4f5d-a114-5f4769200092" />
+<img width="207" height="308" alt="image" src="https://github.com/user-attachments/assets/78866ae0-bea3-446c-a44e-f0119bb2dbbc" />
+
+
+
+
+
 
