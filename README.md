@@ -37,47 +37,66 @@ Consulte o arquivo `driver/README.txt` para instruções de compilação e insta
 
 Consulte o arquivo `driver/README.txt` para instruções de compilação e instalação da Imagem. 
 
-## Garra
+## 🏗️ Garra Robótica Articulada
 
-### Simulação Wokwi
+Este projeto documenta o desenvolvimento de uma garra robótica controlada por ESP32, detalhando desde a prototipagem com materiais simples até a implementação de uma arquitetura estável com barramento I2C, para ser controlada pelo Joystick GPIO
 
-wokwi.com/projects/454524449047083009
+### 🔗 Links e Recursos
+* **Simulação Wokwi:** [Acesse o projeto aqui](https://wokwi.com/projects/454524449047083009)
+* **Driver I2C PCA9685:** [Referência do Controlador PWM](https://www.smartprojectsbrasil.com.br/driver-controlador-pwm-servos-16-canais-i2c-pca9684)
+* **Estrutura Mecânica:** [Kit Braço Robótico Acrílico](https://www.mercadolivre.com.br/kit-braco-robotico-em-acrilico-preto--4-servos-sg90/up/MLBU1093184659)
 
-Realizado esboço basico da garra no Wokwi. Pinos de sinal dos servos ligados diretamente a portas diferentes na ESP. Ignorado necessidade de fonte extavel externa bem como BEC ou redutores/reguladores de voltagem;
+---
 
-### Tentativa Inicial de montagem mecânica usando palitos de picolé e servos simples.
+### 🔬 Histórico de Desenvolvimento
 
-Problemas:
-- Foi detectado que os movimentos mecanicos são bem travados;
-- Foi detectado queda de voltagem devido amperagem do servo. Acima de 0.1A o regulador de voltagem do ESP reinicia. Um único servo operando em carga é suficiente para resetar o ESP32;
+#### 1. Fase de Prototipagem e Simulação
+A fase inicial focou na validação da lógica de controle e dos desafios físicos.
+* **Simulação:** Realizado esboço básico no Wokwi para validar a lógica de pinagem.
+* **Hardware Inicial:** Tentativa de montagem usando palitos de picolé e servos simples.
+* **Problemas Detectados:** Movimentos mecanicamente travados e reinicialização constante da ESP32 (Brownout) devido ao consumo dos servos acima de 0.1A quando ligados diretamente no regulador da placa.
 
-### Tentativa de utilização de Fonte externa
+#### 2. Gestão de Energia e Potência
+Testes com alicate amperímetro confirmaram que o pico de corrente dos servos sob carga exige uma fonte de, no mínimo, **3A**. Tentativas com fontes de 1A mostraram-se insuficientes para manter o torque estável.
 
-Problemas:
-- Foi testado com fonte de 1A;
-- Após testes com o alicate amperimetro foi constatado que era necessário uma fonte de no mínimo 3A;
+#### 3. Versão Final (Mecânica e Eletrônica)
+A solução definitiva utilizou a separação de barramentos e um driver dedicado:
+* **Driver I2C PCA9685:** Facilitou a organização dos cabos e centralizou a alimentação, fornecendo energia estável tanto para os servos quanto para a ESP32 através do barramento I2C.
+* **Montagem:** Kit em acrílico com 4 servos SG90. Nota: Foi necessário centralizar os servos antes da montagem final para evitar danos às engrenagens de plástico.
 
-### Foi disponibilizado um kit de robótica
+---
 
-Problemas:
-- Infelizmente a estrutura da garra estava quebrada;
-- Servos do ombro e cotovelo estavam com problemas;
+### 📐 Mapeamento de Movimento e Restrições
 
-### Versão Final Mecânica e eletrônica da garra
+Foram realizados testes de movimento para definir os ângulos de segurança, evitando que os servos forcem a estrutura ou entrem em stall:
 
-Foi constatado, assim como montagem anteriores de drones e aeromodelos que era necessária um Driver I2C de servos.
-Foram realizadas as seguintes compras:
-- ESP32 (a que foi disponibilizada pelo lab estava com problema de precisar apertar o botão de boot para embarcar firmware):
-- Driver I2C PCA9685 https://www.smartprojectsbrasil.com.br/driver-controlador-pwm-servos-16-canais-i2c-pca9684
-- Kit braço robótico do ML https://www.mercadolivre.com.br/kit-braco-robotico-em-acrilico-preto--4-servos-sg90/up/MLBU1093184659
-- Fonte 3A genérica
+| Articulação | Canal PCA | Ângulo Mín. | Ângulo Máx. | Observação |
+| :--- | :---: | :---: | :---: | :--- |
+| **Base (Giro)** | 0 | 0° | 180° | Rotação lateral completa |
+| **Ombro** | 1 | 15° | 165° | Evita colisão com a base |
+| **Cotovelo** | 2 | 30° | 150° | Evita alavanca excessiva |
+| **Garra** | 3 | 10° | 75° | 10°=Fechada / 75°=Aberta |
 
-Observações:
-O driver facilitou e simplificou bastante as conexões pois utiliza I2C, bastando endereçar na firmware e alem os servos conectarem diretamente a ele, o driver já fornece também a energia para a ESP, melhorou também a organização dos cabos;
-A montagem mécanica da garra precisou ser feita e refeita várias vezes. Existem diferentes versões desse kit.
-Os servos são engrenagens de plastico, é necessário centralizar os servos antes de montar os braços a estrutura.
-Se apertar muito os parafusos o movimento fica comprometido.
-Upgrades futuros seriam servos com engrenagens de metal e um kit/estrutura mecânica melhor.
+---
+
+### 🛠️ Lições Aprendidas
+* **Ajuste Mecânico:** Parafusos excessivamente apertados travam o movimento; o ajuste deve ser firme mas permitir a rotação livre.
+* **Centralização:** Sempre calibrar o ponto zero do servo via firmware antes de fixar os braços de acrílico.
+* **Estabilidade:** O uso do driver I2C foi o divisor de águas para eliminar ruídos elétricos e quedas de tensão no sistema.
+
+---
+
+### 🚀 Upgrades Futuros e P&D
+
+#### 🛸 Mixagem de Servos (Algoritmo Estilo CCPM)
+O próximo desafio técnico é implementar uma lógica de **Mixagem de Servos**, inspirada no sistema **CCPM de helicópteros 6CH**. 
+* **Conceito:** Criar uma função onde o movimento do "Ombro" gere uma compensação automática e proporcional no "Cotovelo" e na "Garra".
+* **Objetivo:** Manter a orientação da garra constante em relação ao solo ou ao objeto enquanto o braço se desloca, facilitando a operação manual e suavizando a trajetória.
+
+#### Outros Upgrades:
+- [ ] Upgrade para servos com engrenagens metálicas (MG90S).
+- [ ] Implementação de controle remoto via interface Web (WebSockets) na ESP32.
+- [ ] Substituição do chassi por impressão 3D (PETG) para maior rigidez estrutural.
 
 ## Desenvolvedores
 <img width="206" height="308" alt="image" src="https://github.com/user-attachments/assets/d7893d29-3348-4ccd-accb-f93c75543fa3" />
