@@ -80,6 +80,7 @@ Foram realizados testes de movimento para definir os ângulos de segurança, evi
 * **Ajuste Mecânico:** Parafusos excessivamente apertados travam o movimento; o ajuste deve ser firme mas permitir a rotação livre.
 * **Centralização:** Sempre calibrar o ponto zero do servo via firmware antes de fixar os braços de acrílico.
 * **Estabilidade:** O uso do driver I2C foi o divisor de águas para eliminar ruídos elétricos e quedas de tensão no sistema.
+* **Torque:** O uso de torque demasiado nos parafusos causa trincas e rachaduras nas peças de acrilico.
 
 ### 🚀 Upgrades Futuros e P&D
 
