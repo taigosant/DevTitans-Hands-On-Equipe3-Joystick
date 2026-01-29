@@ -39,7 +39,7 @@ Consulte o arquivo `driver/README.txt` para instruções de compilação e insta
 
 ## 🏗️ Garra Robótica Articulada
 
-Este projeto documenta o desenvolvimento de uma garra robótica controlada por ESP32, detalhando desde a prototipagem com materiais simples até a implementação de uma arquitetura estável com barramento I2C, para ser controlada pelo Joystick GPIO
+Abaixo segue o detalhamento, desde a prototipagem com materiais simples até a implementação de uma arquitetura estável com barramento I2C, para ser controlada pelo Joystick GPIO
 
 ### 🔗 Links e Recursos
 * **Simulação Wokwi:** [Acesse o projeto aqui](https://wokwi.com/projects/454524449047083009)
