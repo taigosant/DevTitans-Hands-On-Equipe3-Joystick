@@ -89,9 +89,9 @@ O próximo desafio técnico é implementar uma lógica de **Mixagem de Servos**,
 * **Objetivo:** Manter a orientação da garra constante em relação ao solo ou ao objeto enquanto o braço se desloca, facilitando a operação manual e suavizando a trajetória.
 
 #### Outros Upgrades:
-- [ ] Upgrade para servos com engrenagens metálicas (MG90S).
-- [ ] Implementação de controle remoto via interface Web (WebSockets) na ESP32.
+- [ ] Upgrade para servos digitais com engrenagens metálicas para melhor precisão dos movimentos.
 - [ ] Substituição do chassi por impressão 3D (PETG) para maior rigidez estrutural.
+- [ ] Aplicação de rolamentos em lugares estratégicos das articulações para redução do atrito.
 
 ---
 
