@@ -37,6 +37,8 @@ Consulte o arquivo `driver/README.txt` para instruções de compilação e insta
 
 Consulte o arquivo `driver/README.txt` para instruções de compilação e instalação da Imagem. 
 
+---
+
 ## 🏗️ Garra Robótica Articulada
 
 Abaixo segue o detalhamento, desde a prototipagem com materiais simples até a implementação de uma arquitetura estável com barramento I2C, para ser controlada pelo Joystick GPIO
@@ -46,9 +48,8 @@ Abaixo segue o detalhamento, desde a prototipagem com materiais simples até a i
 * **Driver I2C PCA9685:** [Referência do Controlador PWM](https://www.smartprojectsbrasil.com.br/driver-controlador-pwm-servos-16-canais-i2c-pca9684)
 * **Estrutura Mecânica:** [Kit Braço Robótico Acrílico](https://www.mercadolivre.com.br/kit-braco-robotico-em-acrilico-preto--4-servos-sg90/up/MLBU1093184659)
 
----
 
-### 🔬 Histórico de Desenvolvimento
+### 🔬 Histórico de Desenvolvimento da garra
 
 #### 1. Fase de Prototipagem e Simulação
 A fase inicial focou na validação da lógica de controle e dos desafios físicos.
@@ -64,8 +65,6 @@ A solução definitiva utilizou a separação de barramentos e um driver dedicad
 * **Driver I2C PCA9685:** Facilitou a organização dos cabos e centralizou a alimentação, fornecendo energia estável tanto para os servos quanto para a ESP32 através do barramento I2C.
 * **Montagem:** Kit em acrílico com 4 servos SG90. Nota: Foi necessário centralizar os servos antes da montagem final para evitar danos às engrenagens de plástico.
 
----
-
 ### 📐 Mapeamento de Movimento e Restrições
 
 Foram realizados testes de movimento para definir os ângulos de segurança, evitando que os servos forcem a estrutura ou entrem em stall:
@@ -77,14 +76,10 @@ Foram realizados testes de movimento para definir os ângulos de segurança, evi
 | **Cotovelo** | 2 | 30° | 150° | Evita alavanca excessiva |
 | **Garra** | 3 | 10° | 75° | 10°=Fechada / 75°=Aberta |
 
----
-
 ### 🛠️ Lições Aprendidas
 * **Ajuste Mecânico:** Parafusos excessivamente apertados travam o movimento; o ajuste deve ser firme mas permitir a rotação livre.
 * **Centralização:** Sempre calibrar o ponto zero do servo via firmware antes de fixar os braços de acrílico.
 * **Estabilidade:** O uso do driver I2C foi o divisor de águas para eliminar ruídos elétricos e quedas de tensão no sistema.
-
----
 
 ### 🚀 Upgrades Futuros e P&D
 
@@ -97,6 +92,8 @@ O próximo desafio técnico é implementar uma lógica de **Mixagem de Servos**,
 - [ ] Upgrade para servos com engrenagens metálicas (MG90S).
 - [ ] Implementação de controle remoto via interface Web (WebSockets) na ESP32.
 - [ ] Substituição do chassi por impressão 3D (PETG) para maior rigidez estrutural.
+
+---
 
 ## Desenvolvedores
 <img width="206" height="308" alt="image" src="https://github.com/user-attachments/assets/d7893d29-3348-4ccd-accb-f93c75543fa3" />
