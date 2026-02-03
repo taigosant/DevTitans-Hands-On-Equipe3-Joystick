@@ -1,176 +1,208 @@
-#define B_BUTTON_MASK 1
-#define A_BUTTON_MASK 1 << 1
-#define Y_BUTTON_MASK 1 << 2
-#define X_BUTTON_MASK 1 << 3
-#define SEL_BUTTON_MASK 1 << 4
-#define ST_BUTTON_MASK 1 << 5
-#define DOWN_BUTTON_MASK 1 << 6
-#define RIGHT_BUTTON_MASK 1 << 7
-#define UP_BUTTON_MASK 1 << 8
-#define LEFT_BUTTON_MASK 1 << 9
+#include <Arduino.h>
 
+/* =================== Protocolo / Mapeamento =================== */
 
-#define TX_PIN      5
-#define CLK_PIN     4
-#define SYNC_PIN    2
+// Ordem dos 11 bits (bit0→bit10):
+// 0:A, 1:B, 2:Select, 3:Start, 4:Up, 5:Down, 6:Left, 7:Right, 8:C, 9:D, 10:Push
+#define NES_BITS 11
 
+// Pinos do protocolo (host -> ESP32: LATCH/CLOCK, ESP32 -> host: DATA)
+const int PIN_LATCH = 2; // entrada
+const int PIN_CLOCK = 4; // entrada
+const int PIN_DATA  = 5;  // saída
 
-uint16_t dataToWrite = 0;
-uint16_t ButonStatus = 0;
+// Botões digitais (GND = pressionado)
+const int PIN_A      = 25; 
+const int PIN_B      = 26;
+const int PIN_SELECT = 13;
+const int PIN_START  = 23;
+const int PIN_C      = 27;
+const int PIN_D      = 14;
+const int PIN_PUSH   = 22; // <- push-button do joystick (NOVO)
 
-const int PIN_BUTTON_B   = 26;
-const int PIN_BUTTON_A    = 25;
-const int PIN_BUTTON_Y      = 27;
-const int PIN_BUTTON_X    = 33;
-const int PIN_BUTTON_SE  = 35; //SELECT
-const int PIN_BUTTON_ST   = 32; //START
+// Joystick analógico (ADC1)
+const int PIN_VRX = 32; // ADC1_CH6
+const int PIN_VRY = 33; // ADC1_CH7
 
-const int PIN_AXIS_X = 34;
-const int PIN_AXIS_Y = 39 ;
+/* =================== Ajustes de eixo (ADC) =================== */
 
-const uint16_t DEBOUNCE_MS = 25;
-const int AXIS_CENTER_VAL_X = 1755;
-const int AXIS_CENTER_VAL_Y = 1749;
-const int AXIS_THRESHOLD  = 300;
+// ADC 12 bits (0..4095)
+static const int ADC_MIN = 0;
+static const int ADC_MAX = 4095;
 
-struct Button {
-  const char* name;
-  uint8_t pin;
-  bool hasInternalPullup;
-  int lastStable;
-  int lastRead;
-  uint32_t lastChangeMs;
-};
+// Centro aproximado (autocalibra levemente durante uso)
+int centerX = 2048;
+int centerY = 2048;
 
-Button buttons[] = {
-  {"A",      PIN_BUTTON_A,      false, HIGH, HIGH, 0},
-  {"B",    PIN_BUTTON_B,    false, HIGH, HIGH, 0},
-  {"X",    PIN_BUTTON_X,    false, HIGH, HIGH, 0},
-  {"Y",   PIN_BUTTON_Y,   false, HIGH, HIGH, 0},
-  {"SE",   PIN_BUTTON_SE,   true,  HIGH, HIGH, 0},
-  {"ST",  PIN_BUTTON_ST,  true,  HIGH, HIGH, 0},
-};
-const size_t N_BUTTONS = sizeof(buttons)/sizeof(buttons[0]);
+const int DEADZONE = 120;
+const int TRIG     = 550;
+const int HYST     = 80;
+const int SAMPLES  = 4;
 
-void setupPinModes() {
-  // Configura os pinos digitais dos botões
-  for (size_t i = 0; i < N_BUTTONS; ++i) {
-    if (buttons[i].hasInternalPullup) {
-      pinMode(buttons[i].pin, INPUT_PULLUP);
+volatile bool dpadUp = false, dpadDown = false, dpadLeft = false, dpadRight = false;
+int axBuf[SAMPLES] = {0}, ayBuf[SAMPLES] = {0};
+int axIdx = 0, ayIdx = 0;
+
+/* =================== Snapshot =================== */
+
+volatile uint16_t shift_reg = 0; // 1 = pressed (interno); DATA sai invertido (ativo em 0)
+volatile uint8_t  shift_idx = 0;
+
+// Estados “recentes” (atualizados no loop)
+volatile uint8_t aA=0, aB=0, aSEL=0, aSTA=0, aC=0, aD=0, aPUSH=0;
+
+/* =================== Utilidades =================== */
+
+inline uint8_t readBtn(int pin) { return (digitalRead(pin) == LOW) ? 1 : 0; }
+
+int movingAvg(int *buf, int &idx, int sample) {
+  buf[idx] = sample;
+  idx = (idx + 1) % SAMPLES;
+  long sum = 0;
+  for (int i=0;i<SAMPLES;i++) sum += buf[i];
+  return (int)(sum / SAMPLES);
+}
+
+void updateDpadFromAxes(int rawX, int rawY) {
+  int dx = rawX - centerX;
+  int dy = rawY - centerY;
+
+  if (!dpadLeft)  { dpadLeft  = (dx < -(DEADZONE + TRIG)); }
+  else            { dpadLeft  = (dx < -(DEADZONE + TRIG - HYST)); }
+
+  if (!dpadRight) { dpadRight = (dx >  (DEADZONE + TRIG)); }
+  else            { dpadRight = (dx >  (DEADZONE + TRIG - HYST)); }
+
+  if (!dpadUp)    { dpadUp    = (dy < -(DEADZONE + TRIG)); }
+  else            { dpadUp    = (dy < -(DEADZONE + TRIG - HYST)); }
+
+  if (!dpadDown)  { dpadDown  = (dy >  (DEADZONE + TRIG)); }
+  else            { dpadDown  = (dy >  (DEADZONE + TRIG - HYST)); }
+
+  // Evitar opostos simultâneos
+  if (dpadLeft && dpadRight)  { dpadLeft  = (dx < 0); dpadRight = !dpadLeft; }
+  if (dpadUp   && dpadDown)   { dpadUp    = (dy < 0); dpadDown  = !dpadUp;   }
+}
+
+uint16_t buildSnapshot()
+{
+  uint16_t s = 0;
+  uint8_t UP    = dpadUp    ? 1 : 0;
+  uint8_t DOWN  = dpadDown  ? 1 : 0;
+  uint8_t LEFT  = dpadLeft  ? 1 : 0;
+  uint8_t RIGHT = dpadRight ? 1 : 0;
+
+  s |= (aA    << 0);
+  s |= (aB    << 1);
+  s |= (aSEL  << 2);
+  s |= (aSTA  << 3);
+  s |= (UP    << 4);
+  s |= (DOWN  << 5);
+  s |= (LEFT  << 6);
+  s |= (RIGHT << 7);
+  s |= (aC    << 8);
+  s |= (aD    << 9);
+  s |= (aPUSH <<10); // NOVO bit 10
+  return s;
+}
+
+inline void writeDataBit(uint8_t bit) {
+  // ativo-em-0: 1 (pressed) => LOW na linha DATA
+  digitalWrite(PIN_DATA, bit ? LOW : HIGH);
+}
+
+/* =================== ISRs =================== */
+
+volatile int lastLatch = HIGH;
+volatile int lastClock = LOW;
+
+void IRAM_ATTR isrLatch()
+{
+  int v = digitalRead(PIN_LATCH);
+  if (lastLatch == LOW && v == HIGH) {
+    shift_reg = buildSnapshot();
+    shift_idx = 0;
+    writeDataBit((shift_reg >> 0) & 0x1);
+  }
+  lastLatch = v;
+}
+
+void IRAM_ATTR isrClock()
+{
+  int v = digitalRead(PIN_CLOCK);
+  if (lastClock == LOW && v == HIGH) {
+    shift_idx++;
+    if (shift_idx >= NES_BITS) {
+      digitalWrite(PIN_DATA, HIGH); // repouso
     } else {
-      pinMode(buttons[i].pin, INPUT);
+      writeDataBit((shift_reg >> shift_idx) & 0x1);
     }
   }
-  pinMode(CLK_PIN, OUTPUT);
-  pinMode(TX_PIN,OUTPUT);
-  pinMode(SYNC_PIN,INPUT);
-  digitalWrite(CLK_PIN, LOW);
-  digitalWrite(TX_PIN, LOW);
+  lastClock = v;
 }
 
-void setup() {
-  Serial.begin(9600);
-  delay(200);
-  setupPinModes();
-  Serial.println("Joystick ESP32 iniciado.");
+/* =================== Setup / Loop =================== */
+
+void setup()
+{
+  // Protocolo
+  pinMode(PIN_LATCH, INPUT_PULLUP);
+  pinMode(PIN_CLOCK, INPUT_PULLUP);
+  pinMode(PIN_DATA,  OUTPUT);
+  digitalWrite(PIN_DATA, HIGH);
+
+  // Botões
+  pinMode(PIN_A,      INPUT_PULLUP);
+  pinMode(PIN_B,      INPUT_PULLUP);
+  pinMode(PIN_SELECT, INPUT_PULLUP);
+  pinMode(PIN_START,  INPUT_PULLUP);
+  pinMode(PIN_C,      INPUT_PULLUP);
+  pinMode(PIN_D,      INPUT_PULLUP);
+  pinMode(PIN_PUSH,   INPUT_PULLUP);
+
+  // ADC
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);
+
+  int initX = analogRead(PIN_VRX);
+  int initY = analogRead(PIN_VRY);
+  for (int i=0;i<SAMPLES;i++){ axBuf[i]=initX; ayBuf[i]=initY; }
+  centerX = movingAvg(axBuf, axIdx, initX);
+  centerY = movingAvg(ayBuf, ayIdx, initY);
+
+  attachInterrupt(digitalPinToInterrupt(PIN_LATCH), isrLatch, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_CLOCK), isrClock, CHANGE);
 }
 
-void readButtons() {
-  const uint32_t now = millis();
+unsigned long lastCenterMs = 0;
 
-  for (size_t i = 0; i < N_BUTTONS; i++) {
-    Button &b = buttons[i];
-    int raw = digitalRead(b.pin);
-    Serial.print(b.name);
-    Serial.println(raw);
+void loop()
+{
+  // Botões digitais
+  aA    = readBtn(PIN_A);
+  aB    = readBtn(PIN_B);
+  aSEL  = readBtn(PIN_SELECT);
+  aSTA  = readBtn(PIN_START);
+  aC    = readBtn(PIN_C);
+  aD    = readBtn(PIN_D);
+  aPUSH = readBtn(PIN_PUSH); // novo
 
-    if (raw != b.lastRead) {
-      b.lastRead = raw;
-      b.lastChangeMs = now;
-      Serial.println(b.name);
-    }
+  // Eixos (média + histerese -> d-pad)
+  int rx = analogRead(PIN_VRX);
+  int ry = analogRead(PIN_VRY);
+  int ax = movingAvg(axBuf, axIdx, rx);
+  int ay = movingAvg(ayBuf, ayIdx, ry);
 
-    if ((now - b.lastChangeMs) >= DEBOUNCE_MS) {
-      b.lastStable = raw;
-    }
-
-    if (b.lastStable == HIGH) {
-      dataToWrite |= 1 << i;
-    }
+  bool noButtons = !(aA|aB|aSEL|aSTA|aC|aD|aPUSH);
+  bool nearCenter = (abs(ax - centerX) < (DEADZONE/2)) && (abs(ay - centerY) < (DEADZONE/2));
+  unsigned long now = millis();
+  if (noButtons && nearCenter && (now - lastCenterMs > 800)) {
+    centerX = (centerX*7 + ax) / 8;
+    centerY = (centerY*7 + ay) / 8;
+    lastCenterMs = now;
   }
-}
 
-void readDPadFromAnalog() {
-  int x = analogRead(PIN_AXIS_X);
-  int y = analogRead(PIN_AXIS_Y);
-  int xDelta = x - AXIS_CENTER_VAL_X;
-  int yDelta = y - AXIS_CENTER_VAL_Y;
+  updateDpadFromAxes(ax, ay);
 
-  if (yDelta < -AXIS_THRESHOLD) {
-    dataToWrite |= UP_BUTTON_MASK;
-  } else if (yDelta > AXIS_THRESHOLD) {
-    dataToWrite |= DOWN_BUTTON_MASK;
-  }
-
-  if (xDelta < -AXIS_THRESHOLD) {
-    dataToWrite |= RIGHT_BUTTON_MASK;
-  } else if (xDelta > AXIS_THRESHOLD) {
-    dataToWrite |= LEFT_BUTTON_MASK;
-  }
-}
-
-void readAllStates() {
-  dataToWrite = 0;
-  // Lê os estados dos botões digitais
-  readButtons();
-  
-  // Lê os estados do D-Pad
-  readDPadFromAnalog();
-}
-
-#define BAUD_RATE   9600 // Exemplo de taxa. Escolha a menor possível para maior estabilidade.
-
-// Calcula o tempo de um bit em microsegundos
-const int BIT_TIME_US = (1000000 / BAUD_RATE);
-
-// Máscara de Registrador para operação atômica
-const uint32_t TX_MASK = (1UL << TX_PIN);
-
-// Função auxiliar para atraso preciso (melhor que delayMicroseconds())
-// ets_delay_us é uma função de IRAM do ESP-IDF/Arduino-ESP32
-#define bit_delay() ets_delay_us(BIT_TIME_US)
-
-// Garante que a função rode na RAM de Instruções para latência mínima
-void IRAM_ATTR write_2_bytes(uint16_t data) {
-//    static int lastSync = 0;
-//    int syncBit = digitalRead(SYNC_PIN);
-    for (int i = 0; i < 16; i++) {
-//        while(syncBit == lastSync) {
-//          bit_delay();
-//          syncBit = digitalRead(SYNC_PIN);
-//        }
-//        lastSync = syncBit;
-//        bit_delay();
-        digitalWrite(CLK_PIN,LOW);
-        if (data & (1 << i)) {
-            // Bit é 1: Set (HIGH)
-            digitalWrite(TX_PIN,HIGH);
-            Serial.print("1");
-        } else {
-            // Bit é 0: Clear (LOW)
-            digitalWrite(TX_PIN,LOW);
-            Serial.print("0");
-        }
-        bit_delay();
-        digitalWrite(CLK_PIN,HIGH);
-    }
-    Serial.println();
-}
-
-
-void loop() {
-  // Lê todos os estados (botões + D-Pad)
-  readAllStates(); 
- 
-  delay(50); 
+  delay(1);
 }

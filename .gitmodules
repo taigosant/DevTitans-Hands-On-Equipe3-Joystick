@@ -1,4 +1,9 @@
 [submodule "driver"]
 	path = driver
 	url = https://github.com/Arthur-WhiteCorp/driver-joystick-test.git
+  branch = development
+
+[submodule "app"]
+	path = app
+	url = https://github.com/joaomenna1/consoleApp.git
   branch = main
