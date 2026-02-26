@@ -1,0 +1,8 @@
+git
+https://github.com/taigosant/DevTitans-Hands-On-Equipe3-Joystick
+
+wiki
+https://github.com/taigosant/DevTitans-Hands-On-Equipe3-Joystick/blob/main/README.md
+
+slide
+https://www.canva.com/design/DAHALtaG6x4/5d3GO1hh10IZQYEw8Ncj3A
